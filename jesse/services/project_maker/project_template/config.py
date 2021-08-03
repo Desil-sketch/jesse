@@ -37,7 +37,6 @@ config = {
             'fee': 0.002,
 
             # backtest mode only: accepted are 'spot' and 'futures'
-            # 'spot' support is currently very limited - you can use 'futures' with leverage 1 for now
             'type': 'futures',
 
             # futures mode only
@@ -59,7 +58,6 @@ config = {
             'fee': 0.001,
 
             # backtest mode only: accepted are 'spot' and 'futures'
-            # 'spot' support is currently very limited - you can use 'futures' with leverage 1 for now
             'type': 'futures',
 
             # futures mode only
@@ -80,7 +78,6 @@ config = {
             'fee': 0.0004,
 
             # backtest mode only: accepted are 'spot' and 'futures'
-            # 'spot' support is currently very limited - you can use 'futures' with leverage 1 for now
             'type': 'futures',
 
             # futures mode only
@@ -100,7 +97,6 @@ config = {
             'fee': 0.0004,
 
             # backtest mode only: accepted are 'spot' and 'futures'
-            # 'spot' support is currently very limited - you can use 'futures' with leverage 1 for now
             'type': 'futures',
 
             # futures mode only
@@ -120,7 +116,6 @@ config = {
             'fee': 0.005,
 
             # backtest mode only: accepted are 'spot' and 'futures'
-            # 'spot' support is currently very limited - you can use 'futures' with leverage 1 for now
             'type': 'futures',
 
             # futures mode only
