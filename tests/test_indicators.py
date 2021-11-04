@@ -2151,8 +2151,8 @@ def test_vwma():
 def test_vwmacd():
     candles = np.array(test_candles_19)
 
-    single = ta.vwmacd(candles, fast_period=12, slow_period=26, signalperiod=9)
-    seq = ta.vwmacd(candles, fast_period=12, slow_period=26, signalperiod=9, sequential=True)
+    single = ta.vwmacd(candles, fast_period=12, slow_period=26, signal_period=9)
+    seq = ta.vwmacd(candles, fast_period=12, slow_period=26, signal_period=9, sequential=True)
 
     assert type(single).__name__ == 'VWMACD'
     assert round(single.macd, 2) == -31.37

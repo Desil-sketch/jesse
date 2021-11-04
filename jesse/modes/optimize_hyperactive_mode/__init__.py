@@ -37,6 +37,7 @@ class Optimizer():
     self.timeframe = router.routes[0].timeframe
     StrategyClass = jh.get_strategy_class(self.strategy_name)
     self.strategy_hp = StrategyClass.hyperparameters(None)
+    self.hyperparameters_rules = StrategyClass.hyperparameters_rules(None)
     self.solution_len = len(self.strategy_hp)
     self.optimizer = optimizer
     self.iterations = iterations
@@ -75,28 +76,25 @@ class Optimizer():
     os.makedirs('./storage/optimize/csv', exist_ok=True)
 
   def objective_function(self, hp: str):
-
-    # init candle store
-    store.candles.init_storage(5000)
-    # inject required TRAINING candles to the candle store
-
-    for num, c in enumerate(config['app']['considering_candles']):
-      required_candles.inject_required_candles_to_store(
-        self.training_initial_candles[num],
-        c[0],
-        c[1]
-      )
-
+    score = np.nan
     try:
-      # run backtest simulation
-      simulator(self.training_candles, hp)
+      if len(self.hyperparameters_rules) == 0 or jh.hp_rules_valid(hp, self.hyperparameters_rules):
+        # init candle store
+        store.candles.init_storage(5000)
+        # inject required TRAINING candles to the candle store
 
-      if store.completed_trades.count > 5:
+        for num, c in enumerate(config['app']['considering_candles']):
+          required_candles.inject_required_candles_to_store(
+            self.training_initial_candles[num],
+            c[0],
+            c[1]
+          )
+        # run backtest simulation
+        simulator(self.training_candles, hp)
+
         training_data = stats.trades(store.completed_trades.trades, store.app.daily_balance)
         total_effect_rate = log10(training_data['total']) / log10(self.optimal_total)
-        if total_effect_rate > 1:
-          total_effect_rate = 1
-
+        total_effect_rate = min(total_effect_rate, 1)
         ratio_config = jh.get_config('env.optimization.ratio', 'sharpe')
         if ratio_config == 'sharpe':
           ratio = training_data['sharpe_ratio']
@@ -104,7 +102,7 @@ class Optimizer():
         elif ratio_config == 'calmar':
           ratio = training_data['calmar_ratio']
           ratio_normalized = jh.normalize(ratio, -.5, 30)
-        elif ratio_config == 'sortiono':
+        elif ratio_config == 'sortino':
           ratio = training_data['sortino_ratio']
           ratio_normalized = jh.normalize(ratio, -.5, 15)
         elif ratio_config == 'omega':
@@ -115,15 +113,11 @@ class Optimizer():
             'The entered ratio configuration `{}` for the optimization is unknown. Choose between sharpe, calmar, sortino and omega.'.format(
               ratio_config))
 
-        if ratio < 0:
-          score = np.nan
-        else:
+        if ratio > 0:
           score = total_effect_rate * ratio_normalized
-      else:
-        score = np.nan
+
     except Exception as e:
       logger.error("".join(traceback.TracebackException.from_exception(e).format()))
-      score = np.nan
     finally:
 
       # you can access the entire dictionary from "para"
@@ -153,11 +147,11 @@ class Optimizer():
     hp = {}
     for st_hp in self.strategy_hp:
       if st_hp['type'] is int:
-        if not 'step' in st_hp:
+        if 'step' not in st_hp:
           st_hp['step'] = 1
         hp[st_hp['name']] = list(range(st_hp['min'], st_hp['max'] + st_hp['step'], st_hp['step']))
       elif st_hp['type'] is float:
-        if not 'step' in st_hp:
+        if 'step' not in st_hp:
           st_hp['step'] = 0.1
         decs = str(st_hp['step'])[::-1].find('.')
         hp[st_hp['name']] = list(
@@ -185,10 +179,12 @@ class Optimizer():
     if jh.file_exists(self.path):
       with open(self.path, "r") as f:
         mem = pd.read_csv(f, sep=";", na_values='nan')
-      if not mem.empty:
-        if not click.confirm('Previous optimization results for {} exists. Continue?'.format(self.study_name),
-                             default=True):
-          mem = None
+      if not mem.empty and not click.confirm(
+          'Previous optimization results for {} exists. Continue?'.format(
+              self.study_name),
+          default=True,
+      ):
+        mem = None
 
     if self.optimizer == "RandomSearchOptimizer":
       optimizer = hyperactive.RandomSearchOptimizer()
@@ -326,9 +322,7 @@ def optimize_mode_hyperactive(start_date: str, finish_date: str, optimal_total: 
 def get_training_candles(start_date_str: str, finish_date_str: str):
   # Load candles (first try cache, then database)
   from jesse.modes.backtest_mode import load_candles
-  training_candles = load_candles(start_date_str, finish_date_str)
-
-  return training_candles
+  return load_candles(start_date_str, finish_date_str)
 
 
 def from_np_array(array_string):
