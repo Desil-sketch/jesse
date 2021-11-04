@@ -338,6 +338,31 @@ def optimize(start_date: str, finish_date: str, optimal_total: int, cpu: int, de
 
 
 @cli.command()
+@click.argument('start_date', required=True, type=str)
+@click.argument('finish_date', required=True, type=str)
+@click.argument('optimal_total', required=True, type=int)
+@click.argument('optimizer', required=True, type=str)
+@click.argument('iterations', required=True, type=int)
+@click.option('--cpu', default=0, show_default=True, help='The number of CPU cores that Jesse is allowed to use. If set to 0, it will use as many as is available on your machine.')
+@click.option('--debug/--no-debug', default=False, help='Displays detailed logs about the genetics algorithm. Use it if you are interested int he genetics algorithm.')
+def optimize_hyperactive(start_date: str, finish_date: str, optimal_total: int, optimizer: str, iterations: int, cpu: int, debug: bool) -> None:
+    """
+    tunes the hyper-parameters of your strategy
+    """
+    validate_cwd()
+    from jesse.config import config
+    config['app']['trading_mode'] = 'optimize'
+
+    register_custom_exception_handler()
+
+    # debug flag
+    config['app']['debug_mode'] = debug
+
+    from jesse.modes.optimize_hyperactive_mode import optimize_mode_hyperactive
+
+    optimize_mode_hyperactive(start_date, finish_date, optimal_total, cpu, optimizer, iterations)
+
+@cli.command()
 @click.argument('name', required=True, type=str)
 def make_strategy(name: str) -> None:
     """
