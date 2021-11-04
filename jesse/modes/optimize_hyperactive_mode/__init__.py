@@ -264,27 +264,27 @@ class Optimizer():
                        n_jobs=self.cpu_cores)
     hyper.run()
 
-  # def validate_optimization(self, cscv_nbins: int = 10):
-  #   with open(self.path, "r") as f:
-  #     results = pd.read_csv(f, sep=";", converters={'daily_balance': from_np_array}, na_values='nan')
-  #   results.dropna(inplace=True)
-  #   results.drop("score", 1, inplace=True)
-  #   multi_index = results.columns.tolist()
-  #   multi_index.remove('daily_balance')
-  #   results.set_index(multi_index, drop=True, inplace=True)
-  #   new_columns = results.index.to_flat_index()
-  #
-  #   daily_balance = results.daily_balance.to_numpy()
-  #   prepared = prepare_daily_percentage(daily_balance)
-  #   vstack = np.vstack(prepared)
-  #
-  #   daily_percentage = pd.DataFrame(vstack).transpose()
-  #   daily_percentage.columns = new_columns
-  #
-  #   cscv_objective = lambda r: r.mean()
-  #   cscv = CSCV(n_bins=cscv_nbins, objective=cscv_objective)
-  #   cscv.add_daily_returns(daily_percentage)
-  #   cscv.estimate_overfitting(name=self.study_name)
+   def validate_optimization(self, cscv_nbins: int = 10):
+     with open(self.path, "r") as f:
+       results = pd.read_csv(f, sep=";", converters={'daily_balance': from_np_array}, na_values='nan')
+     results.dropna(inplace=True)
+     results.drop("score", 1, inplace=True)
+     multi_index = results.columns.tolist()
+     multi_index.remove('daily_balance')
+     results.set_index(multi_index, drop=True, inplace=True)
+     new_columns = results.index.to_flat_index()
+  
+     daily_balance = results.daily_balance.to_numpy()
+     prepared = prepare_daily_percentage(daily_balance)
+     vstack = np.vstack(prepared)
+  
+     daily_percentage = pd.DataFrame(vstack).transpose()
+     daily_percentage.columns = new_columns
+  
+     cscv_objective = lambda r: r.mean()
+     cscv = CSCV(n_bins=cscv_nbins, objective=cscv_objective)
+     cscv.add_daily_returns(daily_percentage)
+     cscv.estimate_overfitting(name=self.study_name)
 
 # first make same length
 # forward fill returns
