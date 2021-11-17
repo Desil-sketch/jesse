@@ -78,6 +78,8 @@ def register_custom_exception_handler() -> None:
 
     log_format = "%(message)s"
 
+    os.makedirs('./storage/logs', exist_ok=True)
+
     if jh.is_livetrading():
         logging.basicConfig(filename='storage/logs/live-trade.txt', level=logging.INFO,
                             filemode='w', format=log_format)
@@ -388,8 +390,6 @@ def make_project(name: str) -> None:
     from jesse.config import config
 
     config['app']['trading_mode'] = 'make-project'
-
-    register_custom_exception_handler()
 
     from jesse.services import project_maker
 
