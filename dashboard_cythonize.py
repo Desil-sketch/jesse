@@ -11,7 +11,6 @@ os.environ['CFLAGS'] = '-O3 -march=native -Wall -mavx -flto=full -I /root/cpytho
 os.environ['CC'] = 'clang'
 os.environ['LDSHARED'] = 'clang -shared'
 
-Options.annotate = True
 Options.convert_range = True
 Options.cache_builtins = True
 List = [ 
