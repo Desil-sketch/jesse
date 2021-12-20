@@ -1,4 +1,4 @@
-There is a noticable imporovement in performance using cython if your indicators are already wrapped in C. 
+There is a noticable imporovement in performance using cython if your indicators are already wrapped in C. run "dashboard_cythonize.py" to cythonize. 
 
 # Jesse beta (GUI dashboard)
 
