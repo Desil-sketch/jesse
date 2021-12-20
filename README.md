@@ -1,3 +1,5 @@
+There is a noticable imporovement in performance using cython if your indicators are already wrapped in C. 
+
 # Jesse beta (GUI dashboard)
 
 Here's a quick guide on how to set up and run the dashboard branch until it is officially released.
