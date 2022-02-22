@@ -8,7 +8,11 @@ config = {
             'driver': 'pickle',
             'recycle': True,
         },
-
+        'simulation': {
+            'Montecarlo': False, 
+            'skip': True,
+            'precalculation':True,
+        },
         'logging': {
             'order_submission': True,
             'order_cancellation': True,
