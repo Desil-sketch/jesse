@@ -2,12 +2,13 @@ from abc import ABC, abstractmethod
 
 
 class CandleExchange(ABC):
-    def __init__(self, name: str, count: int, rate_limit_per_second: float, backup_exchange_class):
+    def __init__(self, name: str, count: int, rate_limit_per_second: float, backup_exchange_class, stock_mode = False):
         self.name = name
         self.count = count
         self.sleep_time = 1 / rate_limit_per_second
         self._backup_exchange_class = backup_exchange_class
         self._backup_exchange = None
+        self.stock_mode = stock_mode
 
     @property
     def backup_exchange(self):

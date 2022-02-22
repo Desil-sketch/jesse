@@ -2,8 +2,10 @@ import math
 import threading
 import time
 from datetime import timedelta
+from datetime import datetime,timezone
 from typing import Dict, List, Any, Union
 
+import numpy as np 
 import arrow
 import click
 import pydash
@@ -24,6 +26,11 @@ from jesse.services.progressbar import Progressbar
 
 
 def run(exchange: str, symbol: str, start_date_str: str, skip_confirmation: bool = False, mode: str = 'candles') -> None:
+
+    # import cProfile, pstats
+    # profiler = cProfile.Profile()
+    # profiler.enable()
+    
     config['app']['trading_mode'] = mode
 
     # first, create and set session_id
@@ -49,7 +56,7 @@ def run(exchange: str, symbol: str, start_date_str: str, skip_confirmation: bool
         start_timestamp = jh.arrow_to_timestamp(arrow.get(start_date_str, 'YYYY-MM-DD'))
     except:
         raise ValueError('start_date must be a string representing a date before today. ex: 2020-01-17')
-
+    
     # more start_date validations
     today = arrow.utcnow().floor('day').int_timestamp * 1000
     if start_timestamp == today:
@@ -74,7 +81,7 @@ def run(exchange: str, symbol: str, start_date_str: str, skip_confirmation: bool
         raise ValueError(f'{exchange} is not a supported exchange')
     except TypeError:
         raise FileNotFoundError('You are missing the "plugins.py" file')
-
+    
     loop_length = int(candles_count / driver.count) + 1
     # ask for confirmation
     if not skip_confirmation:
@@ -139,8 +146,11 @@ def run(exchange: str, symbol: str, start_date_str: str, skip_confirmation: bool
                     run(exchange, symbol, jh.timestamp_to_time(first_existing_timestamp)[:10], True)
                     return
 
-            # fill absent candles (if there's any)
-            candles = _fill_absent_candles(candles, temp_start_timestamp, temp_end_timestamp)
+            if driver.stock_mode:
+                candles = _fill_absent_candles_with_nan(candles, temp_start_timestamp, temp_end_timestamp)
+            else:
+                # fill absent candles (if there's any)
+                candles = _fill_absent_candles(candles, temp_start_timestamp, temp_end_timestamp)
 
             # store in the database
             if skip_confirmation:
@@ -174,7 +184,10 @@ def run(exchange: str, symbol: str, start_date_str: str, skip_confirmation: bool
         # close database connection
         from jesse.services.db import database
         database.close_connection()
-
+        
+    # profiler.disable()
+    # pr_stats = pstats.Stats(profiler).sort_stats('tottime')
+    # pr_stats.print_stats(50)
 
 def _get_candles_from_backup_exchange(exchange: str, backup_driver: CandleExchange, symbol: str, start_timestamp: int,
                                       end_timestamp: int) -> List[Dict[str, Union[str, Any]]]:
@@ -337,4 +350,45 @@ def _fill_absent_candles(temp_candles: List[Dict[str, Union[str, Any]]], start_t
         start_timestamp += 60000
     return candles
 
+def _fill_absent_candles_with_nan(temp_candles, start_timestamp, end_timestamp):
+    if len(temp_candles) == 0:
+        raise CandleNotFoundInExchange(
+            'No candles exists in the market for this day: {} \n'
+            'Try another start_date'.format(
+                jh.timestamp_to_time(start_timestamp)[:10],
+            )
+        )
 
+    symbol = temp_candles[0]['symbol']
+    exchange = temp_candles[0]['exchange']
+    candles = []
+    loop_length = ((end_timestamp - start_timestamp) / 60000) + 1
+    now = datetime.now(timezone.utc)
+    midnight = now.replace(hour = 0, minute = 0, second = 0, microsecond = 0)
+    start_of_day = midnight.timestamp()
+    for _ in range(int(loop_length)):
+        candle_for_timestamp = pydash.find(
+            temp_candles, lambda c: c['timestamp'] == start_timestamp)
+
+        if candle_for_timestamp is None and start_timestamp < start_of_day:
+            candles.append({
+                'id': jh.generate_unique_id(),
+                'symbol': symbol,
+                'exchange': exchange,
+                'timestamp': start_timestamp,
+                'open': np.nan,
+                'high': np.nan,
+                'low': np.nan,
+                'close': np.nan,
+                'volume': np.nan
+            })
+        # candle is present
+        elif start_timestamp < start_of_day:
+            candles.append(candle_for_timestamp)
+
+        start_timestamp += 60000
+    return candles
+    
+    
+def _insert_to_database(candles):
+    Candle.insert_many(candles).on_conflict_ignore().execute()
