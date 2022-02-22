@@ -4,7 +4,7 @@ of methods of a class. Below functions have been designed with that in mind.
 """
 from math import log10
 import jesse.helpers as jh
-from jesse.research import backtest as isolated_backtest
+from jesse.research.backtest import backtest as isolated_backtest
 from jesse.services import logger
 import traceback
 import os
@@ -43,9 +43,12 @@ def get_fitness(
             extra_routes,
             training_candles,
             hyperparameters=hp
-        )
+        )['metrics']
     except Exception as e:
-        jh.dump("".join(traceback.TracebackException.from_exception(e).format()))
+        # get the main title of the exception
+        log_text = e
+        log_text = f"Exception in strategy execution:\n {log_text}"
+        logger.log_optimize_mode(log_text)
         raise e
 
     training_log = {'win-rate': None, 'total': None, 'PNL': None}
@@ -83,6 +86,7 @@ def get_fitness(
 
         if ratio < 0:
             score = 0.0001
+            logger.log_optimize_mode(f"NEGATIVE RATIO: DNA is not usable => {ratio_config}: {ratio}, total: {training_data_metrics['total']}")
             return score, training_log, testing_log
 
         # log for debugging/monitoring
@@ -95,8 +99,10 @@ def get_fitness(
         score = total_effect_rate * ratio_normalized
         # if score is numpy nan, replace it with 0.0001
         if np.isnan(score):
+            logger.log_optimize_mode(f'Score is nan. DNA is invalid')
             score = 0.0001
-
+        else:
+            logger.log_optimize_mode(f"DNA is usable => {ratio_config}: {round(ratio, 2)}, total: {training_data_metrics['total']}, PNL%: {round(training_data_metrics['net_profit_percentage'], 2)}%, win-rate: {round(training_data_metrics['win_rate']*100, 2)}%")
         # run backtest simulation
         testing_data_metrics = isolated_backtest(
             _formatted_inputs_for_isolated_backtest(optimization_config, routes),
@@ -104,7 +110,7 @@ def get_fitness(
             extra_routes,
             testing_candles,
             hyperparameters=hp
-        )
+        )['metrics']
 
         # log for debugging/monitoring
         if testing_data_metrics['total'] > 0:
@@ -114,6 +120,7 @@ def get_fitness(
             }
 
     else:
+        logger.log_optimize_mode(f'Less than 5 trades in the training data. DNA is invalid')
         score = 0.0001
 
     return score, training_log, testing_log
@@ -137,9 +144,8 @@ def get_and_add_fitness_to_the_bucket(
         else:
             raise ValueError(f"Initial Population: Double DNA: {dna}")
     except Exception as e:
-        proc = os.getpid()
-        logger.error(f'process failed - ID: {proc}')
-        logger.error("".join(traceback.TracebackException.from_exception(e).format()))
+        pid = os.getpid()
+        logger.log_optimize_mode(f"process failed (ID: {pid}):\n{e}")
 
 
 def make_love(
@@ -201,6 +207,5 @@ def create_baby(
         )
         people_bucket.append(baby)
     except Exception as e:
-        proc = os.getpid()
-        logger.error(f'process failed - ID: {proc}')
-        logger.error("".join(traceback.TracebackException.from_exception(e).format()))
+        pid = os.getpid()
+        logger.log_optimize_mode(f"process failed - ID: {pid}\n{e}")
