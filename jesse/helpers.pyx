@@ -1,3 +1,4 @@
+
 import hashlib
 # import math
 import os
@@ -5,12 +6,14 @@ import random
 import string
 import sys
 import uuid
+import random
 from typing import List, Tuple, Union, Any
 from pprint import pprint
-from jesse.enums import timeframes
+from jesse.enums import timeframes,trade_types,sides     
 from jesse.exceptions import InvalidTimeframe
 import arrow
 import click
+from IPython import get_ipython
 from jesse.config import config
 import platform
 from functools import reduce
@@ -22,9 +25,14 @@ from libc.time cimport time,time_t
 np.import_array()
 DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
-
+import random
+from uuid import UUID
 CACHED_CONFIG = dict()
 
+def uuid4():
+  s = '%032x' % random.getrandbits(128)
+  return s[0:8]+'-'+s[8:12]+'-4'+s[13:16]+'-'+s[16:20]+'-'+s[20:32]
+  
 def app_currency() -> str:
     from jesse.routes import router
     return router.routes[0].symbol.split('-')[1]
@@ -64,7 +72,33 @@ def class_iter(Class):
     return (value for variable, value in vars(Class).items() if
             not callable(getattr(Class, variable)) and not variable.startswith("__"))
 
+def is_notebook():
+    try:
+        shell = get_ipython().__class__.__name__
+        # Jupyter notebook or qtconsole
+        if shell == 'ZMQInteractiveShell':
+            return True
+        elif shell == 'TerminalInteractiveShell':
+            # Terminal running IPython
+            return False
+        else:
+            # Other type (?)
+            return False
+    except NameError:
+        # Probably standard Python interpreter
+        return False
 
+def get_os() -> str:
+    # import platform
+    if platform.system() == 'Darwin':
+        return 'mac'
+    elif platform.system() == 'Linux':
+        return 'linux'
+    elif platform.system() == 'Windows':
+        return 'windows'
+    else:
+        raise NotImplementedError(f'Unsupported OS: "{platform.system()}"')
+        
 def clean_orderbook_list(arr) -> List[List[float]]:
     return [[float(i[0]), float(i[1])] for i in arr]
 
@@ -110,7 +144,20 @@ def convert_number(old_max: float, old_min: float, new_max: float, new_min: floa
 def dashless_symbol(symbol: str) -> str:
     return symbol.replace("-", "")
 
+def dashy_symbol(symbol: str) -> str:
+    # if already has '-' in symbol, return symbol
+    if '-' in symbol:
+        return symbol
 
+    from jesse.config import config
+
+    for s in config['app']['considering_symbols']:
+        compare_symbol = dashless_symbol(s)
+        if compare_symbol == symbol:
+            return s
+
+    return f"{symbol[0:3]}-{symbol[3:]}"
+    
 def date_diff_in_days(date1: arrow.arrow.Arrow, date2: arrow.arrow.Arrow) -> int:
     if type(date1) is not arrow.arrow.Arrow or type(
             date2) is not arrow.arrow.Arrow:
@@ -166,6 +213,10 @@ def hp_to_dna(strategy_hp: list, values: dict) -> str:
         hp += encoded_gene
     return hp
     
+def clear_file(path: str) -> None:
+    with open(path, 'w') as f:
+        f.write('')
+        
 def dump_exception() -> None:
     """
     a useful debugging helper
@@ -237,7 +288,7 @@ def format_currency(num: float) -> str:
 
 
 def generate_unique_id() -> str:
-    return str(uuid.uuid4())
+    return uuid4()
 
 
 def get_arrow(timestamp: int) -> arrow.arrow.Arrow:
@@ -341,7 +392,6 @@ def is_importing_candles() -> bool:
 def is_live() -> bool:
     return False #is_livetrading() or is_paper_trading()
 
-
 def is_livetrading() -> bool:
     return False #config['app']['trading_mode'] == 'livetrade'
 
@@ -365,6 +415,7 @@ def is_unit_testing() -> bool:
 def is_valid_uuid(uuid_to_test:str, version: int = 4) -> bool:
     try:
         uuid_obj = uuid.UUID(uuid_to_test, version=version)
+        print(uuid_obj)
     except ValueError:
         return False
     return str(uuid_obj) == uuid_to_test
@@ -550,7 +601,7 @@ def prepare_qty(qty: float, side: str) -> float:
 
 
 def python_version() -> float:
-    return float(f'{sys.version_info[0]}.{sys.version_info[1]}')
+    return platform.python_version() #float(f'{sys.version_info[0]}.{sys.version_info[1]}')
 
 
 def quote_asset(symbol: str) -> str:
@@ -649,8 +700,10 @@ def should_execute_silently() -> bool:
 
 
 def side_to_type(s: str) -> str:
-    from jesse.enums import trade_types, sides
 
+    # make sure string is lowercase
+    s = s.lower()
+    
     if s == sides.BUY:
         return trade_types.LONG
     if s == sides.SELL:
@@ -898,3 +951,8 @@ def cpu_cores_count():
 # a function that converts name to env_name. Example: 'Testnet Binance Futures' into 'TESTNET_BINANCE_FUTURES'
 def convert_to_env_name(name: str) -> str:
     return name.replace(' ', '_').upper()
+
+# a function that returns boolean whether or not the code is being executed inside a docker container
+def is_docker() -> bool:
+    import os
+    return os.path.exists('/.dockerenv')
