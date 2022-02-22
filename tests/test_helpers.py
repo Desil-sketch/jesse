@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 import jesse.helpers as jh
-
+from jesse.services.numba_functions import get_nan_indices, reinsert_nan
 
 def test_app_currency():
     from jesse.routes import router
@@ -82,7 +82,11 @@ def test_dashless_symbol():
     # make sure that it works even if it's already dashless
     assert jh.dashless_symbol('BTCUSDT') == 'BTCUSDT'
 
-
+def test_dashy_symbol():
+    assert jh.dashy_symbol('BTCUSD') == 'BTC-USD'
+    assert jh.dashy_symbol('BTCUSDT') == 'BTC-USDT'
+    assert jh.dashy_symbol('BTC-USDT') == 'BTC-USDT'
+    
 def test_date_diff_in_days():
     date_1 = arrow.get('2015-12-23 18:40:48', 'YYYY-MM-DD HH:mm:ss')
     date_2 = arrow.get('2017-11-15 13:18:20', 'YYYY-MM-DD HH:mm:ss')
@@ -397,8 +401,8 @@ def test_prepare_qty():
 
 
 def test_python_version():
-    import sys
-    assert jh.python_version() == float(f'{sys.version_info[0]}.{sys.version_info[1]}')
+    import platform
+    assert jh.python_version() == platform.python_version() #float(f'{sys.version_info[0]}.{sys.version_info[1]}')
 
 
 def test_quote_asset():
@@ -464,11 +468,13 @@ def test_should_execute_silently():
 def test_side_to_type():
     assert jh.side_to_type("buy") == "long"
     assert jh.side_to_type("sell") == "short"
-
+    # make sure title case works as well
+    assert jh.side_to_type("Buy") == "long"
+    assert jh.side_to_type("Sell") == "short"
 
 def test_string_after_character():
     assert jh.string_after_character('btcusdt@bookTicker', '@') == 'bookTicker'
-
+    assert jh.string_after_character('9000|24628', '|') == '24628'
 
 def test_style():
     assert jh.style('test', 'bold') == "\x1b[1mtest\x1b[0m"
@@ -569,3 +575,15 @@ def test_get_pid():
 def test_convert_to_env_name():
     assert jh.convert_to_env_name('Testnet Binance Futures') == 'TESTNET_BINANCE_FUTURES'
     assert jh.convert_to_env_name('Testnet Binance') == 'TESTNET_BINANCE'
+
+def test_get_nan_indices():
+    arr = np.array([0, 11, 22, np.nan, 33, 44, 54, 55, np.nan, np.nan, 20])
+    ind = get_nan_indices(arr)
+    assert (ind == np.array([3, 8, 9])).all()
+    
+def test_reinsert_nan():
+    arr = np.array([0, 11, 22, np.nan, 33, 44, 54, 55, np.nan, np.nan, 20])
+    arr_without_nan = arr[~np.isnan(arr)]
+    ind = get_nan_indices(arr)
+    arr_with_nan = reinsert_nan(arr_without_nan, ind)
+    assert ((arr == arr_with_nan) | (np.isnan(arr) & np.isnan(arr_with_nan))).all()    
