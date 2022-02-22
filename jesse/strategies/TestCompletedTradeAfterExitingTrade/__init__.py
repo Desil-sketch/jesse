@@ -24,7 +24,7 @@ class TestCompletedTradeAfterExitingTrade(Strategy):
         assert self.trades_count == 1
 
         trade = self.trades[0]
-
+        print(trade.id)
         assert jh.is_valid_uuid(trade.id) is True
         assert trade.strategy_name == 'TestCompletedTradeAfterExitingTrade'
         assert trade.symbol == 'BTC-USDT'
@@ -34,8 +34,8 @@ class TestCompletedTradeAfterExitingTrade(Strategy):
         assert trade.entry_price == 10
         assert trade.exit_price == 12
         assert trade.qty == 10
-        assert trade.opened_at == 1552309906171.0
-        assert trade.closed_at == 1552310026171.0
+        assert trade.opened_at == 1609459800000.0
+        assert trade.closed_at == 1609459920000.0
         assert trade.leverage == 2
 
         # assert all orders have their trade_id set
