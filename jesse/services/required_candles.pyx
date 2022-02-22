@@ -1,3 +1,4 @@
+
 import arrow
 import numpy as np
 
@@ -6,7 +7,7 @@ from jesse.config import config
 from jesse.exceptions import CandleNotFoundInDatabase
 from jesse.models import Candle
 from jesse.services.cache import cache
-from jesse.services.numba_functions import generate_candle_from_one_minutes
+from jesse.services.candle import generate_candle_from_one_minutes
 from jesse.store import store
 
 
@@ -105,14 +106,14 @@ def load_required_candles(exchange: str, symbol: str, start_date_str: str, finis
 
 
 def inject_required_candles_to_store(candles: np.ndarray, exchange: str, symbol: str) -> None:
-    cdef Py_ssize_t i
+    # cdef int candle_counter
     """
     generate and add required candles to the candle store
     """
     # batch add 1m candles:
     store.candles.batch_add_candle(candles, exchange, symbol, '1m', with_generation=False)
-
     # loop to generate, and add candles (without execution)
+    # candle_counter = -1
     for i in range(len(candles)):
         for timeframe in config['app']['considering_timeframes']:
             # skip 1m. already added
@@ -122,6 +123,7 @@ def inject_required_candles_to_store(candles: np.ndarray, exchange: str, symbol:
             num = jh.timeframe_to_one_minutes(timeframe)
 
             if (i + 1) % num == 0:
+                # candle_counter = candle_counter + 1 
                 generated_candle = generate_candle_from_one_minutes(
                     timeframe,
                     candles[(i - (num - 1)):(i + 1)],

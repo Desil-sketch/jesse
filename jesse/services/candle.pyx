@@ -1,3 +1,4 @@
+
 import arrow
 import numpy as np
 cimport numpy as np 
@@ -7,11 +8,60 @@ DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
 import jesse.helpers as jh
 from jesse.services import logger
+from libc.math cimport isnan, NAN
+from numpy.math cimport INFINITY
+
+#for stock handling 
+# @cython.wraparound(True)
+# def generate_candle_from_one_minutes(timeframe: str,
+                                     # candles: np.ndarray ,
+                                     # accept_forming_candles:bool = False) :
+    # return np.array([
+        # candles[0][0],
+        # candles[0][1] if not (candles[:, 1]) == candles[:,1] else NAN,
+        # candles[-1][2] if not (candles[:, 2]) == candles[:,2] else NAN,
+        # candles[:, 3].max() if not (candles[:, 3]) == candles[:,3] else NAN,
+        # candles[:, 4].min() if not (candles[:, 4]) == candles[:,4] else NAN,
+        # candles[:, 5].sum() if not (candles[:, 5]) == candles[:,5] else NAN,
+    # ],dtype= np.float64)
 
 @cython.wraparound(True)
-def generate_candle_from_one_minutes(timeframe: str,
-                                     candles: np.ndarray,
-                                     accept_forming_candles: bool = False) -> np.ndarray:
+def generate_candle_from_one_minutes(str timeframe,double [:,::1] array, bint accept_forming_candles = False):  
+    cdef Py_ssize_t rows, i 
+    rows = len(array)
+    cdef double sum1
+    cdef double min1 = INFINITY
+    cdef double max1 = -INFINITY
+    cdef double close1, open1, time1
+    close1 = array[-1,2] if array[-1,2] == array[-1,2] else NAN
+    open1 = array[0,1] if array[0,1] == array[0,1] else NAN
+    time1 = array[0,0]
+    if close1 is not NAN:
+        for i in range(rows):
+            sum1 = sum1 + array[i,5] 
+            if array[i,4] < min1:
+                min1 = array[i,4]
+            if array[i,3] > max1:
+                max1 = array[i,3] 
+    else:
+        sum1 = NAN
+        min1 = NAN
+        max1 = NAN
+        
+    return np.array([
+        time1,
+        open1,
+        close1,
+        max1,
+        min1,
+        sum1,
+    ])
+    
+#old wrapper       
+# @cython.wraparound(True)
+# def generate_candle_from_one_minutes(timeframe: str,
+                                     # candles,
+                                     # bint accept_forming_candles = False):
     # if len(candles) == 0:
         # raise ValueError('No candles were passed')
 
@@ -19,15 +69,15 @@ def generate_candle_from_one_minutes(timeframe: str,
         # raise ValueError(
             # f'Sent only {len(candles)} candles but {jh.timeframe_to_one_minutes(timeframe)} is required to create a "{timeframe}" candle.'
         # )
-
-    return np.array([
-        candles[0][0],
-        candles[0][1],
-        candles[-1][2],
-        candles[:, 3].max(),
-        candles[:, 4].min(),
-        candles[:, 5].sum(),
-    ])
+    # sum1, min1, max1, close1, open1, time1 = c_sum(candles)
+    # return np.array([
+        # time1,
+        # open1,
+        # close1,
+        # max1,
+        # min1,
+        # sum1,
+    # ])
 
 @cython.wraparound(True)
 def print_candle(candle: np.ndarray, is_partial: bool, symbol: str) -> None:

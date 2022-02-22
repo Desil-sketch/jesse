@@ -21,7 +21,11 @@ class Cache:
             if os.path.isfile(f"{self.path}cache_database.pickle"):
                 gc.disable 
                 with open(f"{self.path}cache_database.pickle", 'rb') as f:
-                    self.db = pickle.load(f)
+                    try:    
+                        self.db = pickle.load(f)
+                    except EOFError or OSError:
+                        # File got broken
+                        self.db = {}
                 gc.enable 
             # if not, create a dict object. We'll create the file when using set_value()
             else:
@@ -51,7 +55,7 @@ class Cache:
 
         try:
             item = self.db[key]
-        except KeyError:
+        except KeyError or OSError:
             return False
 
         # if expired, remove file, and database record
@@ -89,7 +93,7 @@ class Cache:
         try:
             gc.disable()
             item = self.db[cache_key]
-            print('item:', item)
+            # print('item:', item)
             # if expired, remove file, and database record
             if item['expire_at'] is not None and time() > item['expire_at']:
                 os.remove(item['path'])
@@ -105,7 +109,9 @@ class Cache:
             with open(item['path'], 'rb') as f:
                 return pickle.load(f)
             gc.enable()
-        except KeyError:
+        except FileNotFoundError:
+            return False 
+        except KeyError or OSError:
             candidates = [pickl for pickl in self.db if key in pickl]
             # print('Candidates: ', candidates)
 
@@ -170,7 +176,7 @@ class Cache:
                     print('Finish with calc', parent_pickles[slice_finish],
                           datetime.datetime.fromtimestamp(parent_pickles[slice_finish][0] / 1000))"""
                     return pickle_slice
-                except KeyError:
+                except KeyError or OSError:
                     return False
             return False
             

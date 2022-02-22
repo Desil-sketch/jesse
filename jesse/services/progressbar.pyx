@@ -1,3 +1,5 @@
+import os
+os.environ["NUMPY_EXPERIMENTAL_ARRAY_FUNCTION"]="0"
 from time import time
 import numpy as np
 cimport numpy as np 

@@ -12,17 +12,19 @@ async def init_redis():
     return await aioredis.create_redis_pool(
         address=(ENV_VALUES['REDIS_HOST'], ENV_VALUES['REDIS_PORT']),
         password=ENV_VALUES['REDIS_PASSWORD'] or None,
+        db=int(ENV_VALUES.get('REDIS_DB') or 0),
     )
 
 
 async_redis = None
 sync_redis = None
 if jh.is_jesse_project():
-    async_redis = asyncio.run(init_redis())
-    sync_redis = sync_redis_lib.Redis(
-        host=ENV_VALUES['REDIS_HOST'], port=ENV_VALUES['REDIS_PORT'], db=0,
-        password=ENV_VALUES['REDIS_PASSWORD'] if ENV_VALUES['REDIS_PASSWORD'] else None
-    )
+    if not jh.is_notebook():
+        async_redis = asyncio.run(init_redis())
+        sync_redis = sync_redis_lib.Redis(
+            host=ENV_VALUES['REDIS_HOST'], port=ENV_VALUES['REDIS_PORT'], db=int(ENV_VALUES.get('REDIS_DB') or 0),  
+            password=ENV_VALUES['REDIS_PASSWORD'] if ENV_VALUES['REDIS_PASSWORD'] else None
+        )
 
 
 def sync_publish(event: str, msg):
@@ -30,7 +32,7 @@ def sync_publish(event: str, msg):
         raise EnvironmentError('sync_publish() should be NOT called during testing. There must be something wrong')
 
     sync_redis.publish(
-        'channel:1', json.dumps({
+        f"{ENV_VALUES['APP_PORT']}:channel:1", json.dumps({
             'id': os.getpid(),
             'event': f'{jh.app_mode()}.{event}',
             'data': msg
@@ -40,7 +42,7 @@ def sync_publish(event: str, msg):
 
 async def async_publish(event: str, msg):
     await async_redis.publish(
-        'channel:1', json.dumps({
+        f"{ENV_VALUES['APP_PORT']}:channel:1", json.dumps({
             'id': os.getpid(),
             'event': f'{jh.app_mode()}.{event}',
             'data': msg
@@ -55,7 +57,7 @@ def process_status(pid=None) -> str:
     if pid is None:
         pid = jh.get_pid()
 
-    key = f'process-status:{pid}'
+    key = f"{ENV_VALUES['APP_PORT']}|process-status:{pid}"
 
     res: str = jh.str_or_none(sync_redis.get(key))
     if res is None:

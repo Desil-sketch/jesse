@@ -18,7 +18,7 @@ from jesse.store import store
 
 
 def candles_info(candles_array: np.ndarray) -> dict:
-    cdef int period = jh.date_diff_in_days(
+    cdef unsigned long long period = jh.date_diff_in_days(
         jh.timestamp_to_arrow(candles_array[0][0]),
         jh.timestamp_to_arrow(candles_array[-1][0])) + 1
 
@@ -46,8 +46,9 @@ def routes(routes_arr: list) -> list:
 
 
 def trades(trades_list: list, daily_balance: list, final: bool = True) -> dict:
-    cdef float starting_balance, current_balance, s_max, s_min,fee,net_profit,net_profit_percentage,average_win,average_loss,expectancy,expectancy_percentage,average_holding_period,average_winning_holding_period,average_losing_holding_period,gross_profit,gross_loss,open_pl
-    cdef Py_ssize_t total_completed, total_winning_trades, total_losing_trades, longs_count, shorts_count, total_open_trades
+    cdef double starting_balance, current_balance, s_max, s_min,fee,net_profit,net_profit_percentage,average_win,average_loss,expectancy,expectancy_percentage,average_holding_period,average_winning_holding_period,average_losing_holding_period,gross_profit,gross_loss,open_pl
+    cdef long long total_completed, total_winning_trades, total_losing_trades, longs_count, shorts_count, total_open_trades
+
     starting_balance = 0
     current_balance = 0
 
@@ -56,7 +57,7 @@ def trades(trades_list: list, daily_balance: list, final: bool = True) -> dict:
         current_balance += store.exchanges.storage[e].assets[jh.app_currency()]
 
     if not trades_list:
-        return {'total': 0}
+        return {'total': 0, 'win_rate': 0, 'net_profit_percentage': 0}
 
     df = pd.DataFrame.from_records([t.to_dict() for t in trades_list])
 
@@ -103,7 +104,7 @@ def trades(trades_list: list, daily_balance: list, final: bool = True) -> dict:
     gross_profit = winning_trades['PNL'].sum()
     gross_loss = losing_trades['PNL'].sum()
 
-    start_date = datetime.fromtimestamp(store.app.starting_time / 1000)
+    start_date = pd.Timestamp.fromtimestamp(store.app.starting_time /1000) #datetime.fromtimestamp(store.app.starting_time / 1000)
     date_index = pd.date_range(start=start_date, periods=len(daily_balance))
 
     daily_return = pd.DataFrame(daily_balance, index=date_index).pct_change(1)
@@ -178,3 +179,14 @@ def trades(trades_list: list, daily_balance: list, final: bool = True) -> dict:
         'largest_winning_trade': largest_winning_trade,
         'current_streak': current_streak[-1],
     }
+
+def hyperparameters(routes_arr: list) -> list:
+    if routes_arr[0].strategy.hp is None:
+        return []
+    hp = []
+    # only for the first route
+    for key in routes_arr[0].strategy.hp:
+        hp.append([
+            key, routes_arr[0].strategy.hp[key]
+        ])
+    return hp

@@ -16,6 +16,13 @@ def register_custom_exception_handler() -> None:
             jh.terminate_app()
         else:
             # send notifications if it's a live session
+            if jh.is_live():
+                jesse_logger.error(
+                    f'{args.exc_type.__name__}: {args.exc_value}'
+                )
+                jesse_logger.info(
+                    str(traceback.format_exc())
+                )
 
             sync_publish('exception', {
                 'error': f"{args.exc_type.__name__}: {str(args.exc_value)}",

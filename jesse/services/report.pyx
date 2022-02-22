@@ -25,14 +25,17 @@ def positions() -> list:
     arr = []
 
     for r in router.routes:
+
         p: Position = r.strategy.position
         arr.append({
+            'currency': router.routes[0].symbol.split('-')[1],
             'type': p.type,
             'strategy_name': p.strategy.name,
             'symbol': p.symbol,
             'leverage': p.leverage,
             'opened_at': p.opened_at,
             'qty': p.qty,
+            'value': round(p.value,2),
             'entry': p.entry_price,
             'current_price': p.current_price,
             'liq_price': p.liquidation_price,
@@ -61,9 +64,9 @@ def candles() -> dict:
     # add extra_routes
     for e in router.extra_candles:
         candle_keys.append({
-            'exchange': e[0],
-            'symbol': e[1],
-            'timeframe': e[2]
+            'exchange': e['exchange'],
+            'symbol': e['symbol'],
+            'timeframe': e['timeframe']
         })
 
     for k in candle_keys:
@@ -153,22 +156,29 @@ def info() -> List[List[Union[str, Any]]]:
         for w in store.logs.info[::-1][0:5]
     ]
 
-
-def watch_list() -> Optional[Any]:
-    # only support one route
-    if len(router.routes) > 1:
-        return None
+def watch_list() -> List[List[Union[str, str]]]:
+    """
+    Returns a list of data that are currently being watched in realtime
+    only support the first route
+    """
 
     strategy = router.routes[0].strategy
-
+    # return if strategy object is not initialized yet
+    if strategy is None:
+        return []
     # don't if the strategy hasn't been initiated yet
     if not store.candles.are_all_initiated:
-        return None
+        return []
 
     watch_list_array = strategy.watch_list()
+    # loop through the watch list and convert each item into a string
+    for index, value in enumerate(watch_list_array):
+        # if value is not a tuple with two values in it, raise ValueError
+        if not isinstance(value, tuple) or len(value) != 2:
+            raise ValueError("watch_list() must return a list of tuples with 2 values in each. Example: [(key1, value1), (key2, value2)]")
 
-    return watch_list_array if len(watch_list_array) else None
-
+        watch_list_array[index] = (str(value[0]), str(value[1]))
+    return watch_list_array if len(watch_list_array) else []
 
 def errors() -> List[List[Union[str, Any]]]:
     return [
