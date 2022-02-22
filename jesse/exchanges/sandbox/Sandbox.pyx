@@ -5,7 +5,11 @@ from jesse.exchanges.exchange import Exchange
 from jesse.models import Order
 from jesse.store import store
 from typing import Union
-import uuid
+import random
+def uuid4():
+  s = '%032x' % random.getrandbits(128)
+  return s[0:8]+'-'+s[8:12]+'-4'+s[13:16]+'-'+s[16:20]+'-'+s[20:32]
+  
 class Sandbox(Exchange):
     def __init__(self, name='Sandbox'):
         super().__init__()
@@ -13,7 +17,7 @@ class Sandbox(Exchange):
 
     def market_order(self, symbol: str, qty: float, current_price: float, side: str, role: str, flags: list) -> Order:
         order = Order({
-            'id': str(uuid.uuid4()),
+            'id': uuid4(),
             'symbol': symbol,
             'exchange': self.name,
             'side': side,
@@ -32,7 +36,7 @@ class Sandbox(Exchange):
 
     def limit_order(self, symbol: str, qty: float, price: float, side: str, role: str, flags: list) -> Order:
         order = Order({
-            'id': str(uuid.uuid4()),
+            'id': uuid4(),
             'symbol': symbol,
             'exchange': self.name,
             'side': side,
@@ -49,7 +53,7 @@ class Sandbox(Exchange):
 
     def stop_order(self, symbol: str, qty: float, price: float, side: str, role: str, flags: list) -> Order:
         order = Order({
-            'id': str(uuid.uuid4()),
+            'id': uuid4(),
             'symbol': symbol,
             'exchange': self.name,
             'side': side,
