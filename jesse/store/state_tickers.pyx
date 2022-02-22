@@ -1,5 +1,5 @@
-from typing import List
 
+from typing import List
 import numpy as np
 cimport numpy as np 
 np.import_array()
@@ -38,9 +38,9 @@ class TickersState:
         if len(self.storage[key]) == 0 or jh.now_to_timestamp() - self.storage[key].array[self.storage[key].index][0] >= 1000:#[-1][0] >= 1000:
             self.storage[key].append(ticker)
 
-            if jh.is_collecting_data():
-                store_ticker_into_db(exchange, symbol, ticker)
-                return
+            # if jh.is_collecting_data():
+                # store_ticker_into_db(exchange, symbol, ticker)
+                # return
 
     def get_tickers(self, exchange: str, symbol: str) -> List[Ticker]:
         key = f'{exchange}-{symbol}'

@@ -16,7 +16,7 @@ from jesse.enums import timeframes
 from jesse.exceptions import RouteNotFound
 # from jesse.libs import DynamicNumpyArray
 from jesse.models import store_candle_into_db
-from jesse.services.numba_functions import generate_candle_from_one_minutes
+from jesse.services.candle import generate_candle_from_one_minutes
 from timeloop import Timeloop
 from datetime import timedelta
 from jesse.services import logger
@@ -57,7 +57,7 @@ cdef class CandlesState:
 
                 if jh.now() >= current_candle[0] + 60_000:
                     new_candle = self._generate_empty_candle_from_previous_candle(current_candle)
-                    self.add_candle(new_candle, exchange, symbol, '1m')
+                    self.add_one_candle(new_candle, exchange, symbol, '1m')
 
         t.start()
 
@@ -115,33 +115,59 @@ cdef class CandlesState:
             exchange: str,
             symbol: str,
             timeframe: str,
+            with_execution: bool = True,
+            with_generation: bool = True,
+            with_skip: bool = True
+    ) -> None:
+
+        # add only 1 candle
+        if len(candle.shape) == 1:
+            self.add_one_candle(
+                candle,
+                exchange,
+                symbol,
+                timeframe,
+                with_execution,
+                with_generation,
+                with_skip)
+
+        # add only multiple candles
+        elif len(candle.shape) == 2:
+
+            self.add_multiple_candles(
+                candle,
+                exchange,
+                symbol,
+                timeframe,
+                with_execution,
+                with_generation,
+                )
+                
+    def add_one_candle(
+            self,
+            candle,
+            exchange: str,
+            symbol: str,
+            timeframe: str,
             bint with_execution= True,
             bint with_generation = True,
             bint with_skip = True
     ) -> None:
-        # if jh.is_collecting_data():
-            # raise NotImplemented("Collecting data is deactivated at the moment")
-            # make sure it's a complete (and not a forming) candle
-            # if jh.now_to_timestamp() >= (candle[0] + 60000):
-                # store_candle_into_db(exchange, symbol, candle)
-            # return
-
-        # if candle[0] == 0:
-            # if jh.is_debugging():
-                # logger.error("DEBUGGING-VALUE: please report to Saleh: candle[0] is zero")
-            # return
 
         arr: DynamicNumpyArray = self.storage[f'{exchange}-{symbol}-{timeframe}']
+        cdef long long old_index = arr.array[arr.index][0]
+        cdef unsigned long long time_candle = candle[0] 
+        
 
         # if it's not an initial candle, add it to the storage, if already exists, update it
-        if f'{exchange}-{symbol}' in self.initiated_pairs:
-            store_candle_into_db(exchange, symbol, candle, on_conflict='replace')
-            
+        # if f'{exchange}-{symbol}' in self.initiated_pairs:
+            # store_candle_into_db(exchange, symbol, candle, on_conflict='replace')
         #initial 
-        if len(arr) == 0:
+        if old_index == -1:
             arr.append(candle)
+            
         # if it's new, add
-        elif candle[0] > arr.array[arr.index][0]:
+        elif time_candle > old_index:
             arr.append(candle)
             
             # generate other timeframes
@@ -150,7 +176,7 @@ cdef class CandlesState:
                
             
         # if it's the last candle again, update
-        elif candle[0] == arr.array[arr.index][0]:
+        elif time_candle == old_index:
             arr[-1] = candle
 
             # regenerate other timeframes
@@ -158,8 +184,34 @@ cdef class CandlesState:
                 self.generate_bigger_timeframes(candle, exchange, symbol, with_execution)
 
         # past candles will be ignored (dropped)
-        elif candle[0] < arr.array[arr.index][0]:
+        elif time_candle < old_index:
             return
+
+
+    def add_multiple_candles(self,
+                              candle: np.ndarray,
+                              exchange: str,
+                              symbol: str,
+                              timeframe: str,
+                              with_execution: bool = True,
+                              with_generation: bool = True):
+
+        arr: DynamicNumpyArray = self.storage[f'{exchange}-{symbol}-{timeframe}']
+        # this is an array of candles
+        if len(arr) == 0:
+            arr.append_multiple(candle)
+
+        # if it's new, add
+        elif candle[-1,0] > arr.array[arr.index][0]:
+            arr.append_multiple(candle)
+
+            # generate other timeframes
+            if with_generation and timeframe == '1m':
+                self.generate_bigger_timeframes(candle, exchange, symbol, with_execution)
+        else:
+            print(f'new candle: {candle[-1,0]}, old candle: {arr.array[arr.index][0]}')
+            raise ValueError('Try to insert list of candles into memory, but some already exist..')
+            
             
     @cython.wraparound(False)
     def add_candle_from_trade(self, trade, exchange: str, symbol: str) -> None:
@@ -179,7 +231,7 @@ cdef class CandlesState:
         current_candle = self.get_current_candle(exchange, symbol, '1m')
         if jh.now() > current_candle[0] + 60_000:
             new_candle = self._generate_empty_candle_from_previous_candle(current_candle)
-            self.add_candle(new_candle, exchange, symbol, '1m')
+            self.add_one_candle(new_candle, exchange, symbol, '1m')
 
         # update position's current price
         self.update_position(exchange, symbol, trade['price'])
@@ -195,7 +247,7 @@ cdef class CandlesState:
         # volume
         new_candle[5] += trade['volume']
 
-        self.add_candle(new_candle, exchange, symbol, '1m')
+        self.add_one_candle(new_candle, exchange, symbol, '1m')
 
     @staticmethod
     def update_position(exchange: str, symbol: str, price: float) -> None:
@@ -247,7 +299,7 @@ cdef class CandlesState:
                 accept_forming_candles=True
             )
 
-            self.add_candle(generated_candle, exchange, symbol, timeframe, with_execution, with_generation=False)
+            self.add_one_candle(generated_candle, exchange, symbol, timeframe, with_execution, with_generation=False)
 
     @cython.wraparound(False)
     def simulate_order_execution(self, exchange: str, symbol: str, timeframe: str, new_candle: np.ndarray) -> None:
@@ -271,7 +323,7 @@ cdef class CandlesState:
     def batch_add_candle(self, candles: np.ndarray, exchange: str, symbol: str, timeframe: str,
                          with_generation: bool = True) -> None:
         for c in candles:
-            self.add_candle(c, exchange, symbol, timeframe, with_execution=False, with_generation=with_generation, with_skip=False)
+            self.add_one_candle(c, exchange, symbol, timeframe, with_execution=False, with_generation=with_generation, with_skip=False)
 
     @cython.wraparound(False)
     def forming_estimation(self, exchange: str, symbol: str, timeframe: str) -> tuple:
@@ -292,7 +344,7 @@ cdef class CandlesState:
         # no need to worry for forming candles when timeframe == 1m
         if timeframe == '1m':
             arr: c_DynamicNumpyArray = self.storage[f'{exchange}-{symbol}-{"1m"}' ]
-            if len(arr) > 0:
+            if len(arr) > -1:
                 return arr.array[0:arr.index+1] 
             else:
                 return np.zeros((0, 6))
@@ -359,18 +411,13 @@ class DynamicNumpyArray:
         self.shape = shape
 
     def __len__(self) -> int:
-        # cdef Py_ssize_t index = self.index 
         return self.index + 1
      
     def getslice(self,int start = 0, int stop =0):
-        # cdef Py_ssize_t index = self.index
         stop = self.index+1 if stop == 0 else stop 
         return self.array[start:stop] 
         
     def __setitem__(self, int i, ar item):
-        cdef Py_ssize_t index = self.index
-        # if i < 0:
-            # i = (index + 1) - abs(i)
         self.array[self.index] = item
         
     def append(self, ar item) -> None:
@@ -378,8 +425,22 @@ class DynamicNumpyArray:
         cdef ar new_bucket
         cdef Py_ssize_t index = self.index 
         cdef int bucket_size = self.bucket_size
-        # expand if the arr is almost full
         if index != 0 and (index + 1) % bucket_size == 0:
             new_bucket = np.zeros((bucket_size,6),dtype=DTYPE)
             self.array = np.concatenate((self.array, new_bucket), axis=0, dtype=DTYPE)
         self.array[index] = item
+        
+    def append_multiple(self, double [:,::1] items) -> None:
+        self.index += 1
+        cdef Py_ssize_t new_index = self.index 
+        cdef Py_ssize_t items_shape = items.shape[0]
+        while items_shape > self.array.shape[0] - new_index:
+            new_bucket = np.zeros(self.shape)
+            self.array = np.concatenate((self.array, new_bucket), axis=0)
+
+        self.array[new_index: new_index + items_shape] = items
+        self.index += items_shape - 1
+        
+    def __getitem__(self, i):
+        stop = self.index + 1
+        return self.array[i.start:stop]

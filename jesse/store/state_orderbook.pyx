@@ -50,10 +50,10 @@ class OrderbookState:
 
             formatted_orderbook = self.format_orderbook(exchange, symbol)
 
-            if jh.is_collecting_data():
-                store_orderbook_into_db(exchange, symbol, formatted_orderbook)
-            else:
-                self.storage[key].append(formatted_orderbook)
+            # if jh.is_collecting_data():
+                # store_orderbook_into_db(exchange, symbol, formatted_orderbook)
+            # else:
+            self.storage[key].append(formatted_orderbook)
 
     def get_current_orderbook(self, exchange: str, symbol: str) -> np.ndarray:
         key = jh.key(exchange, symbol)
