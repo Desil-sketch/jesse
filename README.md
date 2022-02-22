@@ -1,4 +1,4 @@
-There is a noticable imporovement in performance using cython if your indicators are already wrapped in C. In my tests I noticed a ~3.5x speed up with the interative simulator while already using talib indicators. Optional indicator precalculation provided >30% speed increase with talib. Beaware that indicator precalculation is currently slightly inaccurate when optimizing. run "dashboard_cythonize.py" to cythonize. 
+There is a noticable imporovement in performance using cython if your indicators are already wrapped in C. In my tests I noticed a ~3.5x speed up with the interative simulator while already using talib indicators. Optional indicator precalculation provided >30% speed increase with talib. Beaware that indicator precalculation is currently slightly inaccurate when optimizing. Run "dashboard_cythonize.py" to cythonize. 
 
 # Jesse beta (GUI dashboard)
 
