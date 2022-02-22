@@ -1,5 +1,5 @@
 from typing import List, Dict
-
+from jesse.services import charts 
 
 def backtest(
         config: dict,
@@ -11,7 +11,7 @@ def backtest(
 ) -> dict:
     """
     An isolated backtest() function which is perfect for using in research, and AI training
-    such as our own optimization mode. Because of its isolation design, it can be used
+    such as our own optimization mode. Because of it being a pure function, it can be used
     in Python's multiprocessing without worrying about pickling issues.
 
     Example `config`:
@@ -41,7 +41,7 @@ def backtest(
     }
     """
     from jesse.services.validators import validate_routes
-    from jesse.modes.backtest_mode import simulator
+    from jesse.modes.backtest_mode import iterative_simulator as simulator 
     from jesse.config import config as jesse_config, reset_config
     from jesse.routes import router
     from jesse.store import store
@@ -65,7 +65,7 @@ def backtest(
     # TODO: validate the name of the exchange in the config and the route? or maybe to make sure it's a supported exchange
 
     # initiate candle store
-    store.candles.init_storage(5000)
+    store.candles.init_storage(500000)
 
     # divide candles into warm_up_candles and trading_candles and then inject warm_up_candles
     cdef int warm_up_num
@@ -87,7 +87,18 @@ def backtest(
     # run backtest simulation
     simulator(trading_candles, run_silently, hyperparameters)
 
-    result = metrics.trades(store.completed_trades.trades, store.app.daily_balance)
+    result = {
+        'metrics': {'total': 0, 'win_rate': 0, 'net_profit_percentage': 0},
+        'charts': None,
+        'logs': None,
+    }
+    if store.completed_trades.count > 0:
+        # add metrics
+        result['metrics'] = metrics.trades(store.completed_trades.trades, store.app.daily_balance)
+        # add charts
+        result['charts'] = charts.portfolio_vs_asset_returns()
+        # add logs
+        result['logs'] = store.logs.info
 
     # reset store and config so rerunning would be flawlessly possible
     reset_config()
