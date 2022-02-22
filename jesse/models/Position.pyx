@@ -1,6 +1,9 @@
 from typing import Union
 import sys
-import uuid 
+import random
+def uuid4():
+  s = '%032x' % random.getrandbits(128)
+  return s[0:8]+'-'+s[8:12]+'-4'+s[13:16]+'-'+s[16:20]+'-'+s[20:32]
 import numpy as np
 cimport numpy as np 
 np.import_array()
@@ -16,7 +19,7 @@ from libc.math cimport abs,NAN
 
 class Position:
     def __init__(self, exchange_name: str, symbol: str, attributes: dict = None) -> None:
-        self.id = str(uuid.uuid4())
+        self.id = uuid4()
         self.entry_price = None
         self.exit_price = None
         self.current_price = None
@@ -138,7 +141,7 @@ class Position:
         if c_qty == 0:
             return 0
 
-        diff = self.value - abs(self.entry_price * c_qty)
+        diff = abs(self.current_price * self.qty) - abs(self.entry_price * c_qty)
 
         return -diff if self.qty < 0 else diff
 
@@ -177,19 +180,19 @@ class Position:
         if c_qty == 0:
             return NAN
 
-        if self.mode in ['cross', 'spot']:
+        if self.exchange.type == 'spot' or self.exchange.futures_leverage_mode == 'cross':
             return NAN
 
-        elif self.mode == 'isolated':
+        else: #elif self.mode == 'isolated':
             if c_qty > 0:    
-                return self.entry_price * (1 - self._initial_margin_rate + 0.004)
+                return self.entry_price * (1 - (1 / self.strategy.leverage) + 0.004)
             elif c_qty < 0:
-                return self.entry_price * (1 + self._initial_margin_rate - 0.004)
+                return self.entry_price * (1 + (1 / self.strategy.leverage) - 0.004)
             else:
                 return NAN
 
-        else:
-            raise ValueError
+        # else:
+            # raise ValueError
 
     @property
     def _initial_margin_rate(self) -> float:
@@ -199,12 +202,29 @@ class Position:
     def bankruptcy_price(self) -> double:
         cdef double c_qty = self.qty
         if c_qty > 0:
-            return self.entry_price * (1 - self._initial_margin_rate)
+            return self.entry_price * (1 - 1 / self.leverage)
         elif c_qty < 0:
-            return self.entry_price * (1 + self._initial_margin_rate)
+            return self.entry_price * (1 + 1 / self.leverage)
         else:
             return NAN
-
+            
+    @property
+    def to_dict(self):
+        return {
+            'entry_price': self.entry_price,
+            'qty': self.qty,
+            'current_price': self.current_price,
+            'value': self.value,
+            'type': self.type,
+            'exchange': self.exchange_name,
+            'pnl': self.pnl,
+            'pnl_percentage': self.pnl_percentage,
+            'leverage': self.leverage,
+            'liquidation_price': self.liquidation_price,
+            'bankruptcy_price': self.bankruptcy_price,
+            'mode': self.mode,
+        }
+        
     def _close(self, double close_price) -> None:
         cdef double c_qty = self.qty
         if c_qty != 0 is False:
@@ -250,9 +270,9 @@ class Position:
             self.exchange.add_realized_pnl(estimated_profit)
             self.exchange.temp_reduced_amount[self.symbol.split('-')[0]] += abs(qty * price)
 
-        if self.type == trade_types.LONG:
+        if c_qty > 0: #self.type == trade_types.LONG:
             self.qty = c_qty - qty
-        elif self.type == trade_types.SHORT:
+        elif c_qty < 0: #self.type == trade_types.SHORT:
             self.qty = c_qty + qty
 
         info_text = f'REDUCED position: {self.exchange_name}, {self.symbol}, {self.type}, {c_qty}, ${round(self.entry_price, 2)}'

@@ -1,3 +1,4 @@
+
 import numpy as np
 cimport numpy as np 
 DTYPE = np.float64
@@ -109,9 +110,10 @@ class FuturesExchange(Exchange):
         cdef double c_fee_rate = self.fee_rate
         cdef double fee_amount = abs(amount) * c_fee_rate
         cdef double new_balance = self.assets[self.settlement_currency] - fee_amount
-        logger.info(
-            f'Charged {round(fee_amount, 2)} as fee. Balance for {self.settlement_currency} on {self.name} changed from {round(self.assets[self.settlement_currency], 2)} to {round(new_balance, 2)}'
-        )
+        if fee_amount != 0:
+            logger.info(
+                f'Charged {round(fee_amount, 2)} as fee. Balance for {self.settlement_currency} on {self.name} changed from {round(self.assets[self.settlement_currency], 2)} to {round(new_balance, 2)}'
+            )
         self.assets[self.settlement_currency] = new_balance
 
     def add_realized_pnl(self, double realized_pnl) -> None:

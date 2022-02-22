@@ -1,6 +1,9 @@
 import threading
 import numpy as np
-import uuid
+import random
+def uuid4():
+  s = '%032x' % random.getrandbits(128)
+  return s[0:8]+'-'+s[8:12]+'-4'+s[13:16]+'-'+s[16:20]+'-'+s[20:32]
 import jesse.helpers as jh
 from jesse.services import logger
 from jesse.models.Candle import Candle
@@ -17,7 +20,7 @@ from jesse.models.Trade import Trade
 def store_candle_into_db(exchange: str, symbol: str, candle: np.ndarray, on_conflict='ignore') -> None:
 
     d = {
-        'id': str(uuid.uuid4()),
+        'id': uuid4(),
         'symbol': symbol,
         'exchange': exchange,
         'timestamp': candle[0],
@@ -28,21 +31,17 @@ def store_candle_into_db(exchange: str, symbol: str, candle: np.ndarray, on_conf
         'volume': candle[5]
     }
 
-    def async_save() -> None:
-        if on_conflict == 'ignore':
-            Candle.insert(**d).on_conflict_ignore().execute()
-        elif on_conflict == 'replace':
-            Candle.insert(**d).on_conflict(
-                conflict_target=['timestamp', 'symbol', 'exchange'],
-                preserve=(Candle.open, Candle.high, Candle.low, Candle.close, Candle.volume),
-            ).execute()
-        elif on_conflict == 'error':
-            Candle.insert(**d).execute()
-        else:
-            raise Exception(f'Unknown on_conflict value: {on_conflict}')
-
-    # async call
-    threading.Thread(target=async_save).start()
+    if on_conflict == 'ignore':
+        Candle.insert(**d).on_conflict_ignore().execute()
+    elif on_conflict == 'replace':
+        Candle.insert(**d).on_conflict(
+            conflict_target=['timestamp', 'symbol', 'exchange'],
+            preserve=(Candle.open, Candle.high, Candle.low, Candle.close, Candle.volume),
+        ).execute()
+    elif on_conflict == 'error':
+        Candle.insert(**d).execute()
+    else:
+        raise Exception(f'Unknown on_conflict value: {on_conflict}')
 
 
 def store_log_into_db(log: dict, log_type: str) -> None:
@@ -62,18 +61,14 @@ def store_log_into_db(log: dict, log_type: str) -> None:
         'type': log_type
     }
 
-    def async_save() -> None:
-        Log.insert(**d).execute()
-
-    # async call
-    threading.Thread(target=async_save).start()
+    Log.insert(**d).execute()
 
 
 def store_ticker_into_db(exchange: str, symbol: str, ticker: np.ndarray) -> None:
     return
 
     d = {
-        'id': str(uuid.uuid4()),
+        'id': uuid4(),
         'timestamp': ticker[0],
         'last_price': ticker[1],
         'high_price': ticker[2],
@@ -174,7 +169,7 @@ def store_trade_into_db(exchange: str, symbol: str, trade: np.ndarray) -> None:
     return
 
     d = {
-        'id': str(uuid.uuid4()),
+        'id': uuid4(),
         'timestamp': trade[0],
         'price': trade[1],
         'buy_qty': trade[2],
@@ -202,7 +197,7 @@ def store_orderbook_into_db(exchange: str, symbol: str, orderbook: np.ndarray) -
     return
 
     d = {
-        'id': str(uuid.uuid4()),
+        'id': uuid4(),
         'timestamp': jh.now_to_timestamp(),
         'data': orderbook.dumps(),
         'symbol': symbol,

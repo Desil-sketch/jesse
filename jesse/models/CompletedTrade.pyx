@@ -3,7 +3,11 @@
 
 from jesse.config import config
 from jesse.services.db import database
-import uuid
+import random
+def uuid4():
+  s = '%032x' % random.getrandbits(128)
+  return s[0:8]+'-'+s[8:12]+'-4'+s[13:16]+'-'+s[16:20]+'-'+s[20:32]
+  
 import jesse.helpers as jh
 from jesse.config import config
 from libc.math cimport abs, NAN
@@ -16,7 +20,7 @@ if database.is_closed():
 class CompletedTrade():
     """A trade is made when a position is opened AND closed."""
 
-    id: str = uuid.uuid4() # peewee.UUIDField(primary_key=True)
+    id: str = uuid4() # peewee.UUIDField(primary_key=True)
     strategy_name: str #peewee.CharField()
     symbol:str  # peewee.CharField()
     exchange: str #peewee.CharField()

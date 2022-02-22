@@ -9,11 +9,11 @@ if database.is_closed():
 class Candle(peewee.Model):
     id = peewee.UUIDField(primary_key=True)
     timestamp = peewee.BigIntegerField()
-    open = peewee.FloatField()
-    close = peewee.FloatField()
-    high = peewee.FloatField()
-    low = peewee.FloatField()
-    volume = peewee.FloatField()
+    open = peewee.FloatField(null = True)
+    close = peewee.FloatField(null = True)
+    high = peewee.FloatField(null = True)
+    low = peewee.FloatField(null = True)
+    volume = peewee.FloatField(null = True)
     symbol = peewee.CharField()
     exchange = peewee.CharField()
 

@@ -1,9 +1,11 @@
 # import peewee
-import uuid
+import random
+def uuid4():
+  return '%032x' % random.getrandbits(128)
 from jesse.services.db import database
 
 class Trade():
-    id = uuid.uuid4()
+    id = uuid4()
     # timestamp in milliseconds
     timestamp = int
 
