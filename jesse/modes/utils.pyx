@@ -34,5 +34,5 @@ def save_daily_portfolio_balance() -> None:
     store.app.daily_balance.append(total)
 
     # TEMP: disable storing in database for now
-    if not jh.is_livetrading():
-        logger.info(f'Saved daily portfolio balance: {round(total, 2)}')
+    # if not jh.is_livetrading():
+    logger.info(f'Saved daily portfolio balance: {round(total, 2)}')

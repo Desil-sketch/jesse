@@ -1,3 +1,4 @@
+
 import json
 import os
 import numpy as np
@@ -12,7 +13,7 @@ def get_candles(exchange: str, symbol: str, timeframe: str):
     from jesse.services.db import database
     database.open_connection()
 
-    from jesse.services.numba_functions import generate_candle_from_one_minutes
+    from jesse.services.candle import generate_candle_from_one_minutes
     from jesse.models.utils import fetch_candles_from_db
 
     symbol = symbol.upper()
@@ -22,17 +23,32 @@ def get_candles(exchange: str, symbol: str, timeframe: str):
     finish_date = jh.now(force_fresh=True)
     start_date = finish_date - (num_candles * one_min_count * 60_000)
 
-    # fetch from database
+    # fetch 1m candles from database
     candles = np.array(
         fetch_candles_from_db(exchange, symbol, start_date, finish_date)
     )
 
+    # if there are no candles in the database, return []
+    if candles.size == 0:
+        database.close_connection()
+        return []
+
+    # leave out first candles until the timestamp of the first candle is the beginning of the timeframe
+    timeframe_duration = one_min_count*60_000
+    while candles[0][0] % timeframe_duration != 0:
+        candles = candles[1:]
+
+    # generate bigger candles from 1m candles
     if timeframe != '1m':
-        generated_candles = [generate_candle_from_one_minutes(
-                        timeframe,
-                        candles[(i - (one_min_count - 1)):(i + 1)],
-                        True
-                    ) for i in range(len(candles)) if (i + 1) % one_min_count == 0]
+        generated_candles = []
+        for i in range(len(candles)):
+            if (i + 1) % one_min_count == 0:
+                bigger_candle = generate_candle_from_one_minutes(
+                    timeframe,
+                    candles[(i - (one_min_count - 1)):(i + 1)],
+                    True
+                 )
+                generated_candles.append(bigger_candle)
         candles = generated_candles
 
     database.close_connection()
@@ -51,19 +67,28 @@ def get_candles(exchange: str, symbol: str, timeframe: str):
 
 def get_general_info(has_live=False) -> dict:
     from jesse.modes.import_candles_mode.drivers import drivers
-
+    from jesse.version import __version__ as jesse_version
+    cdef dict system_info
+    system_info = {
+        'jesse_version': jesse_version
+    }
     live_exchanges = []
 
     exchanges = list(sorted(drivers.keys()))
     strategies_path = os.getcwd() + "/strategies/"
     strategies = list(sorted([name for name in os.listdir(strategies_path) if os.path.isdir(strategies_path + name)]))
-
+    
+    system_info['python_version'] = jh.python_version()
+    system_info['operating_system'] = jh.get_os()
+    system_info['cpu_cores'] = jh.cpu_cores_count()
+    system_info['is_docker'] = jh.is_docker()
+    
     return {
         'exchanges': exchanges,
         'live_exchanges': live_exchanges,
         'strategies': strategies,
         'has_live_plugin_installed': has_live,
-        'cpu_cores': jh.cpu_cores_count()
+        'system_info': system_info,
     }
 
 
@@ -131,7 +156,7 @@ def update_config(client_config: dict):
     database.close_connection()
 
 
-def download_file(mode: str, file_type: str, session_id: str):
+def download_file(mode: str, file_type: str, session_id: str = None):
     if mode == 'backtest' and file_type == 'log':
         path = f'storage/logs/backtest-mode/{session_id}.txt'
         filename = f'backtest-{session_id}.txt'
@@ -150,6 +175,10 @@ def download_file(mode: str, file_type: str, session_id: str):
     elif mode == 'backtest' and file_type == 'tradingview':
         path = f'storage/trading-view-pine-editor/{session_id}.txt'
         filename = f'backtest-{session_id}.txt'
+    elif mode == 'optimize' and file_type == 'log':
+        path = f'storage/logs/optimize-mode.txt'
+        # filename should be "optimize-" + current timestamp
+        filename = f'optimize-{jh.timestamp_to_date(jh.now(True))}.txt'
     else:
         raise Exception(f'Unknown file type: {file_type} or mode: {mode}')
 
