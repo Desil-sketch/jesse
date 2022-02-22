@@ -60,7 +60,7 @@ async def terminate_all(authorization: Optional[str] = Header(None)):
     if not authenticator.is_valid_token(authorization):
         return authenticator.unauthorized_response()
 
-    from jesse.services.multiprocessing import process_manager
+    from jesse.services.multiprocessing_module import process_manager
 
     process_manager.flush()
     return JSONResponse({'message': 'terminating all tasks...'})
@@ -135,21 +135,21 @@ def update_config(json_request: ConfigRequestJson, authorization: Optional[str] 
 
 @fastapi_app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
-    from jesse.services.multiprocessing import process_manager
-
+    from jesse.services.multiprocessing_module import process_manager
+    from jesse.services.env import ENV_VALUES
     if not authenticator.is_valid_token(token):
         return
 
     await websocket.accept()
 
     queue = Queue()
-    ch, = await async_redis.psubscribe('channel:*')
+    ch, = await async_redis.psubscribe(f"{ENV_VALUES['APP_PORT']}:channel:*")
 
     async def echo(q):
         while True:
             msg = await q.get()
             msg = json.loads(msg)
-            msg['id'] = process_manager.get_client_id(msg['id'])
+            msg['id'] = process_manager.get_client_id((msg['id']))
             await websocket.send_json(
                 msg
             )
@@ -167,7 +167,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             # just so WebSocketDisconnect would be raised on connection close
             await websocket.receive_text()
     except WebSocketDisconnect:
-        await async_redis.punsubscribe('channel:*')
+        await async_redis.punsubscribe(f"{ENV_VALUES['APP_PORT']}:channel:*")
         print('Websocket disconnected')
 
 
@@ -236,7 +236,7 @@ def general_info(authorization: Optional[str] = Header(None)) -> JSONResponse:
 
 @fastapi_app.post('/import-candles')
 def import_candles(request_json: ImportCandlesRequestJson, authorization: Optional[str] = Header(None)) -> JSONResponse:
-    from jesse.services.multiprocessing import process_manager
+    from jesse.services.multiprocessing_module import process_manager
 
     validate_cwd()
 
@@ -255,7 +255,7 @@ def import_candles(request_json: ImportCandlesRequestJson, authorization: Option
 
 @fastapi_app.delete("/import-candles")
 def cancel_import_candles(request_json: CancelRequestJson, authorization: Optional[str] = Header(None)):
-    from jesse.services.multiprocessing import process_manager
+    from jesse.services.multiprocessing_module import process_manager
 
     if not authenticator.is_valid_token(authorization):
         return authenticator.unauthorized_response()
@@ -267,7 +267,7 @@ def cancel_import_candles(request_json: CancelRequestJson, authorization: Option
 
 @fastapi_app.post("/backtest")
 def backtest(request_json: BacktestRequestJson, authorization: Optional[str] = Header(None)):
-    from jesse.services.multiprocessing import process_manager
+    from jesse.services.multiprocessing_module import process_manager
 
     if not authenticator.is_valid_token(authorization):
         return authenticator.unauthorized_response()
@@ -292,16 +292,15 @@ def backtest(request_json: BacktestRequestJson, authorization: Optional[str] = H
         request_json.export_csv,
         request_json.export_json
     )
-
+    
     return JSONResponse({'message': 'Started backtesting...'}, status_code=202)
-
 
 @fastapi_app.post("/optimization")
 async def optimization(request_json: OptimizationRequestJson, authorization: Optional[str] = Header(None)):
     if not authenticator.is_valid_token(authorization):
         return authenticator.unauthorized_response()
 
-    from jesse.services.multiprocessing import process_manager
+    from jesse.services.multiprocessing_module import process_manager
 
     validate_cwd()
 
@@ -331,7 +330,7 @@ def cancel_optimization(request_json: CancelRequestJson, authorization: Optional
     if not authenticator.is_valid_token(authorization):
         return authenticator.unauthorized_response()
 
-    from jesse.services.multiprocessing import process_manager
+    from jesse.services.multiprocessing_module import process_manager
 
     process_manager.cancel_process('optimize-' + request_json.id)
 
@@ -340,6 +339,9 @@ def cancel_optimization(request_json: CancelRequestJson, authorization: Optional
 
 @fastapi_app.get("/download/{mode}/{file_type}/{session_id}")
 def download(mode: str, file_type: str, session_id: str, token: str = Query(...)):
+    """
+    Log files require session_id because there is one log per each session. Except for the optimize mode
+    """
     if not authenticator.is_valid_token(token):
         return authenticator.unauthorized_response()
 
@@ -347,13 +349,24 @@ def download(mode: str, file_type: str, session_id: str, token: str = Query(...)
 
     return data_provider.download_file(mode, file_type, session_id)
 
+@fastapi_app.get("/download/optimize/log")
+def download_optimization_log(token: str = Query(...)):
+    """
+    Optimization logs don't have have session ID
+    """
+    if not authenticator.is_valid_token(token):
+        return authenticator.unauthorized_response()
 
+    from jesse.modes import data_provider
+
+    return data_provider.download_file('optimize', 'log')
+    
 @fastapi_app.delete("/backtest")
 def cancel_backtest(request_json: CancelRequestJson, authorization: Optional[str] = Header(None)):
     if not authenticator.is_valid_token(authorization):
         return authenticator.unauthorized_response()
 
-    from jesse.services.multiprocessing import process_manager
+    from jesse.services.multiprocessing_module import process_manager
 
     process_manager.cancel_process('backtest-' + request_json.id)
 
@@ -385,7 +398,7 @@ if HAS_LIVE_TRADE_PLUGIN:
 
         # execute live session
         from jesse_live import live_mode
-        from jesse.services.multiprocessing import process_manager
+        from jesse.services.multiprocessing_module import process_manager
 
         trading_mode = 'livetrade' if request_json.paper_mode is False else 'papertrade'
 
@@ -410,7 +423,7 @@ if HAS_LIVE_TRADE_PLUGIN:
         if not authenticator.is_valid_token(authorization):
             return authenticator.unauthorized_response()
 
-        from jesse.services.multiprocessing import process_manager
+        from jesse.services.multiprocessing_module import process_manager
 
         trading_mode = 'livetrade' if request_json.paper_mode is False else 'papertrade'
 
