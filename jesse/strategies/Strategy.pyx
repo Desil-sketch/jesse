@@ -845,10 +845,10 @@ class Strategy(ABC):
         if precalc_bool:
             self._indicator1_value = indicator1
             self._indicator2_value = indicator2
-            # try:
-                # assert self._indicator1_value == self.ema_test[-1]
-            # except AssertionError,error:
-                # print(f'stored {self._indicator1_value} != {self.ema_test[-1]}')
+            try:
+                assert self._indicator1_value == self.ema_test[-1]
+            except AssertionError,error:
+                print(f'stored {self._indicator1_value} != {self.ema_test[-1]}')
         if self._is_executing is True:
             return
 
