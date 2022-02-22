@@ -527,25 +527,20 @@ def indicator_precalculation(dict candles,double [:,::1] first_candles_set,strat
             new_candles = candles[j]['candles']
             key = f'{exchange}-{symbol}-{timeframe}'
             consider_timeframes = jh.timeframe_to_one_minutes(timeframe)
-            # if jh.is_backtesting():
             candle_prestorage = store.candles.get_storage(exchange,symbol,"1m").array 
             candle_prestorage = trim_zeros(candle_prestorage) 
             candle_prestorage_shape = len(candle_prestorage)
             length = len(first_candles_set) + (candle_prestorage_shape)
             full_array = np.zeros((int(length/(consider_timeframes))+1,6))
             new_array = np.concatenate((candle_prestorage,new_candles),axis=0)
-            # elif jh.is_optimizing():
-                # length = len(first_candles_set)
-                # new_array = new_candles
             partial_array = np.zeros((int(length/(consider_timeframes))+1,6))   
             index = 0
             for i in range(0,length):
                 if ((i + 1) % consider_timeframes == 0):
                     partial_array[(index)] = generate_candles_from_minutes(new_array[(i - (consider_timeframes-1)):(i+1)],consider_timeframes)
                     index = index + 1 
-            indicator1 = strategy.jma1(precalc_candles = partial_array)
-            # np.savetxt("indicator3_array.csv", indicator1, delimiter=",")
-            indicator2 = strategy.jma2(precalc_candles = partial_array)
+            indicator1 = strategy.ema1(precalc_candles = partial_array)
+            indicator2 = strategy.ema2(precalc_candles = partial_array)
             indicator1 = np.delete(indicator1,slice(0,(candle_prestorage_shape/consider_timeframes)-1))
             indicator2 = np.delete(indicator2,slice(0,(candle_prestorage_shape/consider_timeframes)-1))
             indicator1_storage[key] = {'array': indicator1 }
