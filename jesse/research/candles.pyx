@@ -4,7 +4,12 @@ from jesse import utils
 from jesse import factories
 from typing import Union
 cimport cython
+import random
 
+def uuid4():
+  s = '%032x' % random.getrandbits(128)
+  return s[0:8]+'-'+s[8:12]+'-4'+s[13:16]+'-'+s[16:20]+'-'+s[20:32]
+  
 @cython.wraparound(True)
 def get_candles(exchange: str, symbol: str, timeframe: str, start_date_: str, finish_date_: str) -> np.ndarray:
     """
@@ -97,7 +102,7 @@ def store_candles(candles: np.ndarray, exchange: str, symbol: str) -> None:
     # TODO: add validation for timeframe to make sure it's `1m`
 
     arr = [{
-            'id': jh.generate_unique_id(),
+            'id': uuid4(),
             'symbol': symbol,
             'exchange': exchange,
             'timestamp': c[0],

@@ -29,3 +29,20 @@ from .backtest import backtest
         # set_config(local_config)
 
 
+# def store_candles(candles: np.ndarray, exchange: str, symbol: str) -> None:
+    # from jesse.services.db import store_candles as store_candles_from_list
+    # import jesse.helpers as jh
+
+    # arr = [{
+            # 'id': jh.generate_unique_id(),
+            # 'symbol': symbol,
+            # 'exchange': exchange,
+            # 'timestamp': c[0],
+            # 'open': c[1],
+            # 'close': c[2],
+            # 'high': c[3],
+            # 'low': c[4],
+            # 'volume': c[5]
+        # } for c in candles]
+
+    # store_candles_from_list(arr)

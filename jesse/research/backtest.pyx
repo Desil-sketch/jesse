@@ -41,7 +41,7 @@ def backtest(
     }
     """
     from jesse.services.validators import validate_routes
-    from jesse.modes.backtest_mode import iterative_simulator as simulator 
+    from jesse.modes.backtest_mode import simulator #iterative_simulator as simulator 
     from jesse.config import config as jesse_config, reset_config
     from jesse.routes import router
     from jesse.store import store
@@ -75,14 +75,14 @@ def backtest(
     if warm_up_num != 0:
         for c in jesse_config['app']['considering_candles']:
             key = jh.key(c[0], c[1])
-            # update trading_candles
-            trading_candles[key]['candles'] = candles[key]['candles'][warm_up_num:]
             # inject warm-up candles
             required_candles.inject_required_candles_to_store(
                 candles[key]['candles'][:warm_up_num],
                 c[0],
                 c[1]
             )
+            # update trading_candles
+            trading_candles[key]['candles'] = candles[key]['candles'][warm_up_num:]
 
     # run backtest simulation
     simulator(trading_candles, run_silently, hyperparameters)
