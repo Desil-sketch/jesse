@@ -1,4 +1,4 @@
-There is a noticable imporovement in performance using cython if your indicators are already wrapped in C. In my tests, I noticed a ~3.5x speed up with the iterative simulator while already using talib indicators. Optional indicator precalculation provided >30% speed increase with talib. Beaware that indicator precalculation is currently slightly inaccurate when optimizing. Run "python3 dashboard_cythonize.py build_ext -j 8 --inplace " to cythonize. 
+There is a noticable imporovement in performance using cython if your indicators are already wrapped in C. In my tests, I noticed a ~3x speed up with the iterative simulator while already using talib indicators. Optional indicator precalculation provided >30% speed increase with talib. Beaware that indicator precalculation is currently slightly inaccurate when optimizing. Run "python3 dashboard_cythonize.py build_ext -j 8 --inplace " to cythonize. 
 
 # Jesse beta (GUI dashboard)
 
