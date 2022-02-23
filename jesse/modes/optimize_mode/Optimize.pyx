@@ -110,7 +110,7 @@ class Optimizer(ABC):
         """
         generates the initial population
         """
-        cdef Py_ssize_t i 
+        cdef Py_ssize_t i, length, 
         length = int(self.population_size / self.cpu_cores)
         progressbar = Progressbar(length)
         for i in range(length):
@@ -179,6 +179,7 @@ class Optimizer(ABC):
     def select_person(self) -> dict:
         # len(self.population) instead of self.population_size because some DNAs might not have been created due to errors
         # to fix an issue with being less than 100 population_len (which means there's only on hyperparameter in the strategy)
+        cdef int population_len, count
         population_len = len(self.population)
         if population_len == 0:
             raise IndexError('population is empty')
@@ -190,10 +191,11 @@ class Optimizer(ABC):
 
         return pydash.max_by(chosen_ones, 'fitness')
 
-    def evolve(self) -> list:
+    def evolve(self):
         """
         the main method, that runs the evolutionary algorithm
         """
+        cdef Py_ssize_t i, loop_length
         # clear the logs to start from a clean slate
         jh.clear_file('storage/logs/optimize-mode.txt')
 
